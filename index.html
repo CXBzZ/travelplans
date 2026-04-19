@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>意大利10日深度游攻略</title>
+    <!-- Supabase：项目 zanewvtwgeekpdeqxmqy；也可在本页更早处设置 window.SUPABASE_URL / window.SUPABASE_ANON_KEY 覆盖。
+         anon 公钥本就要暴露在前端；勿写 service_role。
+         可选：window.GUIDE_STORAGE_BUCKET / window.GUIDE_STORAGE_PATH（默认 italy-guide / guide-body.html）
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --ita-green: #009246;
+            --ita-white: #ffffff;
+            --ita-red: #ce2b37;
+            --bg-color: #f8f9fa;
+            --text-main: #333333;
+            --text-light: #666666;
+            --card-bg: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding-top: 140px; /* 为固定导航栏留出空间 */
+        }
+
+        /* 顶部固定导航栏 */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--ita-white);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 5%;
+            background: linear-gradient(to right, var(--ita-green) 0%, var(--ita-green) 33.33%, var(--ita-white) 33.33%, var(--ita-white) 66.66%, var(--ita-red) 66.66%, var(--ita-red) 100%);
+            color: #333;
+            position: relative;
+        }
+        
+        .header-top::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9);
+            z-index: 0;
+        }
+
+        .header-brand {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-title {
+            position: relative;
+            z-index: 1;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+
+        .header-subtitle {
+            position: relative;
+            z-index: 1;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        /* Tab 导航 */
+        .tab-nav {
+            display: flex;
+            overflow-x: auto;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+            padding: 0 5%;
+            background-color: var(--ita-white);
+        }
+        
+        .tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tablink {
+            background: none;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 15px 20px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-light);
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+        }
+
+        .tablink:hover {
+            color: var(--ita-green);
+        }
+
+        .tablink.active {
+            color: var(--ita-red);
+            border-bottom: 3px solid var(--ita-red);
+        }
+
+        /* 内容区域 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 5% 40px;
+        }
+
+        .tabcontent {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .tabcontent.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            color: var(--ita-green);
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 标签样式 */
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background-color: #f0f4f8;
+            color: #4a5568;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 4px 4px 4px 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* 列表样式 */
+        ul {
+            list-style-type: none;
+        }
+        
+        ul li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+        }
+        
+        ul li::before {
+            content: '•';
+            color: var(--ita-red);
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        /* 网格布局 */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        /* 每日行程时间轴 */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -35px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--ita-green);
+            border: 2px solid var(--ita-white);
+            box-shadow: 0 0 0 2px var(--ita-green);
+        }
+
+        .day-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--ita-red);
+        }
+
+        /* 图片样式 */
+        .ticket-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .ticket-img:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+
+        /* 图片放大弹窗 */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+        }
+        .lightbox.active {
+            display: flex;
+        }
+        .lightbox img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(255,255,255,0.2);
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            z-index: 10000;
+            transition: transform 0.2s;
+        }
+        .lightbox-close:hover {
+            transform: scale(1.2);
+        }
+        .lightbox-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+        }
+
+        /* 地图容器 */
+        .map-container {
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .map-container h3 {
+            margin-bottom: 15px;
+            color: var(--ita-green);
+        }
+        .map-frame {
+            width: 100%;
+            height: 450px;
+            border: none;
+            border-radius: 8px;
+        }
+        .map-link-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f4f8;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .map-link-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .map-copy-btn {
+            padding: 10px 20px;
+            background: var(--ita-green);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .map-copy-btn:hover {
+            background: #007a3a;
+        }
+
+        /* SVG 容器 */
+        .svg-container {
+            width: 100%;
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* 响应式 */
+        /* ========== 移动端响应式优化 ========== */
+        
+        /* 平板设备 (768px以下) */
+        @media (max-width: 768px) {
+            body {
+                padding-top: 130px;
+                font-size: 15px;
+            }
+            
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 10px 4%;
+                gap: 2px;
+            }
+            
+            .header-title {
+                font-size: 1.1rem;
+            }
+            
+            .header-subtitle {
+                font-size: 0.75rem;
+            }
+            
+            .tab-nav {
+                padding: 0;
+                gap: 0;
+                justify-content: flex-start;
+            }
+            
+            .tablink {
+                padding: 12px 10px;
+                font-size: 0.85rem;
+                flex-shrink: 0;
+            }
+            
+            .container {
+                padding: 0 3% 30px;
+            }
+            
+            .card {
+                padding: 15px;
+                margin-bottom: 12px;
+                border-radius: 10px;
+            }
+            
+            .card-title {
+                font-size: 1rem;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+            }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            
+            /* SVG路线图优化 */
+            .svg-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 10px;
+            }
+            
+            .svg-container svg {
+                min-width: 800px;
+                height: auto;
+            }
+            
+            /* 地图框架优化 */
+            .map-frame {
+                height: 280px;
+            }
+            
+            .map-link-box {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .map-link-input {
+                width: 100%;
+                font-size: 12px;
+            }
+            
+            .map-copy-btn {
+                width: 100%;
+                padding: 12px;
+            }
+            
+            /* 驾驶信息优化 */
+            .driving-summary {
+                flex-direction: column;
+                gap: 10px;
+                padding: 12px;
+            }
+            
+            .summary-item {
+                flex-direction: row;
+                justify-content: space-between;
+                width: 100%;
+                padding: 8px 0;
+                border-bottom: 1px solid #eee;
+            }
+            
+            .summary-item:last-child {
+                border-bottom: none;
+            }
+            
+            .summary-value {
+                font-size: 1.2rem;
+            }
+            
+            .daily-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .daily-total {
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .segment {
+                padding: 10px;
+            }
+            
+            .segment-route {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .segment-route .arrow {
+                transform: rotate(90deg);
+                margin: 5px 0;
+            }
+            
+            /* 时间轴优化 */
+            .timeline {
+                padding-left: 20px;
+            }
+            
+            .timeline-item::before {
+                left: -25px;
+                width: 10px;
+                height: 10px;
+            }
+            
+            .day-title {
+                font-size: 1rem;
+            }
+        }
+        
+        /* 手机设备 (576px以下) */
+        @media (max-width: 576px) {
+            body {
+                padding-top: 120px;
+                font-size: 14px;
+            }
+            
+            .header-top {
+                padding: 8px 3%;
+            }
+            
+            .header-title {
+                font-size: 1rem;
+            }
+            
+            .header-subtitle {
+                font-size: 0.7rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+            
+            .tab-nav {
+                padding: 0 2%;
+            }
+            
+            .tablink {
+                padding: 10px 8px;
+                font-size: 0.78rem;
+            }
+            
+            .container {
+                padding: 0 2.5% 20px;
+            }
+            
+            .card {
+                padding: 12px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+            }
+            
+            .card-title {
+                font-size: 0.95rem;
+                gap: 6px;
+            }
+            
+            .tag {
+                padding: 3px 8px;
+                font-size: 0.75rem;
+            }
+            
+            ul li {
+                padding-left: 15px;
+                margin-bottom: 6px;
+                font-size: 0.9rem;
+            }
+            
+            /* 门票卡片优化 */
+            .ticket-card {
+                margin-bottom: 15px;
+            }
+            
+            .ticket-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+                padding: 12px;
+            }
+            
+            .ticket-title {
+                font-size: 1rem;
+            }
+            
+            .ticket-date {
+                font-size: 0.8rem;
+            }
+            
+            .ticket-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 0 5px;
+            }
+            
+            .ticket-tab {
+                padding: 8px 10px;
+                font-size: 0.75rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            
+            .ticket-tab-content {
+                padding: 12px;
+            }
+            
+            /* 信息网格优化 */
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            
+            .info-item {
+                padding: 8px;
+            }
+            
+            .info-label {
+                font-size: 0.7rem;
+            }
+            
+            .info-value {
+                font-size: 0.85rem;
+            }
+            
+            /* 门票图片优化 */
+            .ticket-images {
+                gap: 10px;
+            }
+            
+            .ticket-img {
+                border-radius: 6px;
+            }
+            
+            /* 住宿卡片优化 */
+            .accommodation-card {
+                padding: 12px;
+            }
+            
+            .accommodation-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            /* 驾驶信息优化 */
+            .daily-day {
+                font-size: 1rem;
+                padding: 5px 10px;
+            }
+            
+            .total-km, .total-time {
+                font-size: 0.9rem;
+                padding: 4px 10px;
+            }
+            
+            .segment-info {
+                flex-direction: column;
+                gap: 3px;
+                align-items: flex-start;
+            }
+            
+            .segment-km, .segment-time {
+                font-size: 0.8rem;
+            }
+            
+            /* 地图优化 */
+            .map-frame {
+                height: 220px;
+            }
+            
+            /* 时间轴优化 */
+            .timeline {
+                padding-left: 15px;
+            }
+            
+            .timeline::before {
+                left: 0;
+            }
+            
+            .timeline-item::before {
+                left: -19px;
+                width: 8px;
+                height: 8px;
+            }
+            
+            .timeline-item {
+                margin-bottom: 18px;
+            }
+        }
+        
+        /* 小屏手机 (480px以下) */
+        @media (max-width: 480px) {
+            body {
+                padding-top: 115px;
+                font-size: 13px;
+            }
+            
+            .header-title {
+                font-size: 0.9rem;
+            }
+            
+            .header-subtitle {
+                font-size: 0.65rem;
+            }
+            
+            .tablink {
+                padding: 9px 6px;
+                font-size: 0.72rem;
+            }
+            
+            .card {
+                padding: 10px;
+            }
+            
+            .card-title {
+                font-size: 0.9rem;
+            }
+            
+            /* 信息网格单列 */
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            /* 驾驶信息 */
+            .daily-total {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .summary-value {
+                font-size: 1.1rem;
+            }
+            
+            .segment-route .from,
+            .segment-route .to {
+                font-size: 0.85rem;
+            }
+            
+            /* 门票Tab */
+            .ticket-tab {
+                padding: 7px 8px;
+                font-size: 0.7rem;
+            }
+            
+            /* 入场须知列表 */
+            .notice-list li {
+                font-size: 0.85rem;
+            }
+        }
+        
+        /* 超小屏幕 (360px以下) */
+        @media (max-width: 360px) {
+            body {
+                padding-top: 110px;
+            }
+            
+            .header-title {
+                font-size: 0.85rem;
+            }
+            
+            .tablink {
+                padding: 8px 5px;
+                font-size: 0.68rem;
+            }
+            
+            .ticket-title {
+                font-size: 0.9rem;
+            }
+        }
+        
+        /* 触摸友好优化 */
+        @media (hover: none) and (pointer: coarse) {
+            .tablink, .ticket-tab, .map-copy-btn, button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .ticket-img {
+                cursor: pointer;
+            }
+            
+            /* 禁用hover效果，避免移动端点击后卡住 */
+            .card:hover {
+                transform: none;
+                box-shadow: var(--shadow);
+            }
+        }
+        
+        /* 横屏优化 */
+        @media (max-height: 500px) and (orientation: landscape) {
+            body {
+                padding-top: 100px;
+            }
+            
+            .header-top {
+                padding: 5px 3%;
+            }
+            
+            .tablink {
+                padding: 8px 12px;
+            }
+            
+            .map-frame {
+                height: 200px;
+            }
+        }
+        
+        /* 平滑滚动 */
+        html {
+            scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        /* 加载动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .tabcontent.active {
+            animation: fadeInUp 0.4s ease;
+        }
+        
+        /* 图片灯箱移动端优化 */
+        @media (max-width: 768px) {
+            .lightbox {
+                padding: 10px;
+            }
+            
+            .lightbox-content {
+                max-width: 95vw;
+                max-height: 85vh;
+            }
+            
+            .lightbox-close {
+                top: 10px;
+                right: 10px;
+                font-size: 24px;
+                width: 36px;
+                height: 36px;
+            }
+            
+            .lightbox-tip {
+                font-size: 12px;
+                padding: 8px 15px;
+            }
+        }
+
+        /* —— Supabase 登录门禁 —— */
+        .auth-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #f0f4f8 0%, #e8eef5 50%, #f8f9fa 100%);
+            padding: 24px;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-hover);
+            padding: 32px 28px;
+        }
+        .auth-card h1 {
+            font-size: 1.35rem;
+            margin-bottom: 8px;
+            color: var(--text-main);
+        }
+        .auth-hint {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .auth-card input[type="email"] {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 14px;
+        }
+        .auth-card button[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--ita-green);
+            color: #fff;
+            transition: var(--transition);
+        }
+        .auth-card button[type="submit"]:hover {
+            filter: brightness(1.05);
+        }
+        .auth-msg {
+            margin-top: 16px;
+            font-size: 0.9rem;
+            min-height: 1.4em;
+        }
+        .sign-out-btn {
+            position: relative;
+            z-index: 1;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.12);
+            background: rgba(255,255,255,0.95);
+            cursor: pointer;
+            color: var(--text-main);
+            transition: var(--transition);
+        }
+        .sign-out-btn:hover {
+            border-color: var(--ita-red);
+            color: var(--ita-red);
+        }
+
+
+
+        #guide-loading, #guide-error {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 5%;
+            font-size: 1rem;
+            color: var(--text-light);
+        }
+        #guide-error {
+            color: #b91c1c;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+            <h1>🔒 私密攻略访问</h1>
+            <p class="auth-hint">请输入已在白名单中的邮箱，我们会发送一封<strong>魔法链接</strong>邮件；登录后从 Supabase Storage 加载正文（仅授权用户可下载）。</p>
+            <form id="email-form" autocomplete="on">
+                <input type="email" id="login-email" required placeholder="you@example.com" autocomplete="email" />
+                <button type="submit">发送登录链接</button>
+            </form>
+            <p id="auth-msg" class="auth-msg" aria-live="polite"></p>
+        </div>
+    </div>
+
+    <div id="protected-wrap" style="display: none;">
+        <p id="guide-loading" class="guide-loading">正在加载攻略正文…</p>
+        <p id="guide-error" style="display: none;"></p>
+        <div id="guide-root"></div>
+
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close">&times;</span>
+        <img id="lightbox-img" src="" alt="门票凭证放大图">
+        <div class="lightbox-hint">点击任意处关闭 | 按 ESC 键关闭</div>
+    </div>
+
+    </div><!-- #protected-wrap -->
+
+    <script>
+    (function () {
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+                tabcontent[i].classList.remove("active");
+            }
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(/ active/g, "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            setTimeout(function () {
+                document.getElementById(tabName).classList.add("active");
+            }, 10);
+            evt.currentTarget.className += " active";
+        }
+        window.openTab = openTab;
+
+        window.initDefaultTab = function () {
+            var el = document.getElementById("defaultOpen");
+            if (el) el.click();
+        };
+
+        function copyMapLink() {
+            var linkInput = document.getElementById("mapLink");
+            if (!linkInput) return;
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(linkInput.value).then(function () {
+                var btn = document.querySelector(".map-copy-btn");
+                if (btn) {
+                    btn.textContent = "✅ 已复制！";
+                    setTimeout(function () { btn.textContent = "📋 复制链接"; }, 2000);
+                }
+            });
+        }
+        window.copyMapLink = copyMapLink;
+
+        window.initGuidePage = function () {
+            var lightbox = document.getElementById("lightbox");
+            var lightboxImg = document.getElementById("lightbox-img");
+            if (!lightbox || !lightboxImg) return;
+            document.querySelectorAll(".ticket-img").forEach(function (img) {
+                img.addEventListener("click", function () {
+                    lightboxImg.src = this.src;
+                    lightbox.classList.add("active");
+                    document.body.style.overflow = "hidden";
+                });
+            });
+            lightbox.onclick = function () {
+                lightbox.classList.remove("active");
+                document.body.style.overflow = "";
+            };
+        };
+
+        window.openLightbox = function (img) {
+            var lb = document.getElementById("lightbox");
+            var lbImg = document.getElementById("lightbox-img");
+            if (lbImg) lbImg.src = img.src;
+            if (lb) lb.classList.add("active");
+        };
+        window.closeLightbox = function () {
+            var lb = document.getElementById("lightbox");
+            if (lb) lb.classList.remove("active");
+        };
+
+        document.addEventListener("keydown", function (e) {
+            var lb = document.getElementById("lightbox");
+            if (!lb) return;
+            if (e.key === "Escape" && lb.classList.contains("active")) {
+                lb.classList.remove("active");
+                document.body.style.overflow = "";
+            }
+        });
+    })();
+    </script>
+
+    <script>
+    (function () {
+        var SUPABASE_URL =
+            window.SUPABASE_URL || "https://zanewvtwgeekpdeqxmqy.supabase.co";
+        var SUPABASE_ANON_KEY =
+            window.SUPABASE_ANON_KEY ||
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphbmV3dnR3Z2Vla3BkZXF4bXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1Nzk2NDksImV4cCI6MjA5MjE1NTY0OX0.RAPR601v3ggG-NfcW4d81Ygu5J-wdwibKhP7JhWVZKc";
+
+        if (!window.supabase || !window.supabase.createClient) {
+            console.error("Supabase 脚本未加载");
+            return;
+        }
+
+        var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        var authScreen = document.getElementById("auth-screen");
+        var protectedWrap = document.getElementById("protected-wrap");
+        var authMsg = document.getElementById("auth-msg");
+        var emailForm = document.getElementById("email-form");
+        var guideLoading = document.getElementById("guide-loading");
+        var guideError = document.getElementById("guide-error");
+        var guideRoot = document.getElementById("guide-root");
+
+        function showDenied(message) {
+            if (authMsg) {
+                authMsg.textContent = message || "该邮箱未在白名单中，无法查看攻略。";
+                authMsg.style.color = "#ce2b37";
+            }
+            if (authScreen) authScreen.style.display = "flex";
+            if (protectedWrap) protectedWrap.style.display = "none";
+            if (guideRoot) guideRoot.innerHTML = "";
+            if (guideLoading) guideLoading.style.display = "none";
+            if (guideError) guideError.style.display = "none";
+        }
+
+        async function loadGuideBody() {
+            if (guideLoading) guideLoading.style.display = "block";
+            if (guideError) {
+                guideError.style.display = "none";
+                guideError.textContent = "";
+            }
+            var bucket = window.GUIDE_STORAGE_BUCKET || "italy-guide";
+            var path = window.GUIDE_STORAGE_PATH || "guide-body.html";
+            var dl = await sb.storage.from(bucket).download(path);
+            if (dl.error) throw dl.error;
+            if (!dl.data) throw new Error("正文下载失败（无数据）");
+            var htmlText = await dl.data.text();
+            if (!htmlText || !String(htmlText).trim()) {
+                throw new Error("正文文件为空");
+            }
+            if (guideRoot) guideRoot.innerHTML = htmlText;
+            if (guideLoading) guideLoading.style.display = "none";
+            if (typeof window.initGuidePage === "function") window.initGuidePage();
+            if (typeof window.initDefaultTab === "function") window.initDefaultTab();
+        }
+
+        async function verifyAndUnlock(session) {
+            var raw = session && session.user && session.user.email;
+            if (!raw) {
+                showDenied("无法读取邮箱信息。");
+                await sb.auth.signOut();
+                return;
+            }
+            var email = raw.toLowerCase();
+            var q = await sb
+                .from("allowed_visitors")
+                .select("email")
+                .eq("email", email)
+                .maybeSingle();
+
+            if (q.error) {
+                console.error(q.error);
+                showDenied("验证失败，请稍后重试。");
+                await sb.auth.signOut();
+                return;
+            }
+            if (!q.data) {
+                showDenied("此邮箱未被授权访问本攻略。");
+                await sb.auth.signOut();
+                return;
+            }
+
+            if (authScreen) authScreen.style.display = "none";
+            if (protectedWrap) protectedWrap.style.display = "block";
+            if (authMsg) authMsg.textContent = "";
+
+            try {
+                await loadGuideBody();
+            } catch (e) {
+                console.error(e);
+                if (guideLoading) guideLoading.style.display = "none";
+                if (guideError) {
+                    guideError.style.display = "block";
+                    guideError.textContent =
+                        (e && e.message) ||
+                        "加载正文失败。请确认已在桶 italy-guide 上传 guide-body.html，并已执行 supabase-storage-setup.sql。";
+                }
+            }
+        }
+
+        if (protectedWrap) {
+            protectedWrap.addEventListener("click", function (ev) {
+                if (ev.target && ev.target.closest && ev.target.closest("#sign-out-btn")) {
+                    ev.preventDefault();
+                    sb.auth.signOut();
+                }
+            });
+        }
+
+        async function boot() {
+            var res = await sb.auth.getSession();
+            if (res.data && res.data.session) {
+                await verifyAndUnlock(res.data.session);
+            } else {
+                if (authScreen) authScreen.style.display = "flex";
+                if (protectedWrap) protectedWrap.style.display = "none";
+            }
+        }
+
+        sb.auth.onAuthStateChange(function (event, session) {
+            if (event === "INITIAL_SESSION") return;
+            if (event === "SIGNED_IN" && session) verifyAndUnlock(session);
+            if (event === "SIGNED_OUT") {
+                if (authScreen) authScreen.style.display = "flex";
+                if (protectedWrap) protectedWrap.style.display = "none";
+                if (guideRoot) guideRoot.innerHTML = "";
+                if (guideLoading) guideLoading.style.display = "block";
+                if (guideError) {
+                    guideError.style.display = "none";
+                    guideError.textContent = "";
+                }
+            }
+        });
+
+        if (emailForm) {
+            emailForm.addEventListener("submit", async function (e) {
+                e.preventDefault();
+                var input = document.getElementById("login-email");
+                var em = input && input.value.trim();
+                if (!em) return;
+                if (authMsg) {
+                    authMsg.textContent = "发送中…";
+                    authMsg.style.color = "#666";
+                }
+                var redirect =
+                    window.location.origin +
+                    window.location.pathname +
+                    (window.location.search || "");
+                var otp = await sb.auth.signInWithOtp({
+                    email: em,
+                    options: { emailRedirectTo: redirect },
+                });
+                if (otp.error) {
+                    if (authMsg) {
+                        authMsg.textContent = otp.error.message;
+                        authMsg.style.color = "#ce2b37";
+                    }
+                } else if (authMsg) {
+                    authMsg.textContent = "请查收邮件并点击链接完成登录。";
+                    authMsg.style.color = "#009246";
+                }
+            });
+        }
+
+        boot();
+    })();
+    </script>
+
+</body>
+</html>
