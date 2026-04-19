@@ -908,7 +908,9 @@
             margin-bottom: 20px;
             line-height: 1.5;
         }
-        .auth-card input[type="email"] {
+        .auth-card input[type="email"],
+        .auth-card input[type="password"],
+        .auth-card input[type="text"] {
             width: 100%;
             padding: 12px 14px;
             border: 1px solid #ddd;
@@ -974,10 +976,10 @@
     <div id="auth-screen" class="auth-screen">
         <div class="auth-card">
             <h1>🔒 私密攻略访问</h1>
-            <p class="auth-hint">请输入已在白名单中的邮箱，我们会发送一封<strong>魔法链接</strong>邮件；登录后从 Supabase Storage 加载正文（仅授权用户可下载）。</p>
-            <form id="email-form" autocomplete="on">
-                <input type="email" id="login-email" required placeholder="you@example.com" autocomplete="email" />
-                <button type="submit">发送登录链接</button>
+            <p class="auth-hint">请输入访问口令查看完整攻略。</p>
+            <form id="passcode-form" autocomplete="off">
+                <input type="password" id="passcode-input" required placeholder="访问口令" autocomplete="off" />
+                <button type="submit">解锁</button>
             </form>
             <p id="auth-msg" class="auth-msg" aria-live="polite"></p>
         </div>
@@ -1099,30 +1101,32 @@
             window.SUPABASE_ANON_KEY ||
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphbmV3dnR3Z2Vla3BkZXF4bXF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1Nzk2NDksImV4cCI6MjA5MjE1NTY0OX0.RAPR601v3ggG-NfcW4d81Ygu5J-wdwibKhP7JhWVZKc";
 
-        if (!window.supabase || !window.supabase.createClient) {
+        var PASSCODE_HASH =
+            "e795a9cac31cb9b4841e264cdf9d962364cd0dc10bb7146d14782bac45028845";
+        var UNLOCK_STORAGE_KEY = "italy-guide-unlocked-v1";
+
+        var sb = null;
+        if (window.supabase && window.supabase.createClient) {
+            sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
             console.error("Supabase 脚本未加载");
-            return;
         }
 
-        var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         var authScreen = document.getElementById("auth-screen");
         var protectedWrap = document.getElementById("protected-wrap");
         var authMsg = document.getElementById("auth-msg");
-        var emailForm = document.getElementById("email-form");
+        var passcodeForm = document.getElementById("passcode-form");
+        var passcodeInput = document.getElementById("passcode-input");
         var guideLoading = document.getElementById("guide-loading");
         var guideError = document.getElementById("guide-error");
         var guideRoot = document.getElementById("guide-root");
 
-        function showDenied(message) {
-            if (authMsg) {
-                authMsg.textContent = message || "该邮箱未在白名单中，无法查看攻略。";
-                authMsg.style.color = "#ce2b37";
-            }
-            if (authScreen) authScreen.style.display = "flex";
-            if (protectedWrap) protectedWrap.style.display = "none";
-            if (guideRoot) guideRoot.innerHTML = "";
-            if (guideLoading) guideLoading.style.display = "none";
-            if (guideError) guideError.style.display = "none";
+        async function sha256Hex(text) {
+            var enc = new TextEncoder().encode(text);
+            var buf = await crypto.subtle.digest("SHA-256", enc);
+            return Array.from(new Uint8Array(buf))
+                .map(function (b) { return b.toString(16).padStart(2, "0"); })
+                .join("");
         }
 
         async function loadGuideBody() {
@@ -1133,6 +1137,7 @@
             }
             var bucket = window.GUIDE_STORAGE_BUCKET || "italy-guide";
             var path = window.GUIDE_STORAGE_PATH || "guide-body.html";
+            if (!sb) throw new Error("Supabase 脚本未加载");
             var dl = await sb.storage.from(bucket).download(path);
             if (dl.error) throw dl.error;
             if (!dl.data) throw new Error("正文下载失败（无数据）");
@@ -1146,36 +1151,10 @@
             if (typeof window.initDefaultTab === "function") window.initDefaultTab();
         }
 
-        async function verifyAndUnlock(session) {
-            var raw = session && session.user && session.user.email;
-            if (!raw) {
-                showDenied("无法读取邮箱信息。");
-                await sb.auth.signOut();
-                return;
-            }
-            var email = raw.toLowerCase();
-            var q = await sb
-                .from("allowed_visitors")
-                .select("email")
-                .eq("email", email)
-                .maybeSingle();
-
-            if (q.error) {
-                console.error(q.error);
-                showDenied("验证失败，请稍后重试。");
-                await sb.auth.signOut();
-                return;
-            }
-            if (!q.data) {
-                showDenied("此邮箱未被授权访问本攻略。");
-                await sb.auth.signOut();
-                return;
-            }
-
+        async function unlock() {
             if (authScreen) authScreen.style.display = "none";
             if (protectedWrap) protectedWrap.style.display = "block";
             if (authMsg) authMsg.textContent = "";
-
             try {
                 await loadGuideBody();
             } catch (e) {
@@ -1185,8 +1164,19 @@
                     guideError.style.display = "block";
                     guideError.textContent =
                         (e && e.message) ||
-                        "加载正文失败。请确认已在桶 italy-guide 上传 guide-body.html，并已执行 supabase-storage-setup.sql。";
+                        "加载正文失败。请确认桶 italy-guide 中 guide-body.html 可被匿名访问。";
                 }
+            }
+        }
+
+        function lock() {
+            if (authScreen) authScreen.style.display = "flex";
+            if (protectedWrap) protectedWrap.style.display = "none";
+            if (guideRoot) guideRoot.innerHTML = "";
+            if (guideLoading) guideLoading.style.display = "block";
+            if (guideError) {
+                guideError.style.display = "none";
+                guideError.textContent = "";
             }
         }
 
@@ -1194,64 +1184,58 @@
             protectedWrap.addEventListener("click", function (ev) {
                 if (ev.target && ev.target.closest && ev.target.closest("#sign-out-btn")) {
                     ev.preventDefault();
-                    sb.auth.signOut();
+                    try { localStorage.removeItem(UNLOCK_STORAGE_KEY); } catch (_) {}
+                    try { sessionStorage.removeItem(UNLOCK_STORAGE_KEY); } catch (_) {}
+                    lock();
                 }
             });
         }
 
-        async function boot() {
-            var res = await sb.auth.getSession();
-            if (res.data && res.data.session) {
-                await verifyAndUnlock(res.data.session);
-            } else {
-                if (authScreen) authScreen.style.display = "flex";
-                if (protectedWrap) protectedWrap.style.display = "none";
-            }
-        }
-
-        sb.auth.onAuthStateChange(function (event, session) {
-            if (event === "INITIAL_SESSION") return;
-            if (event === "SIGNED_IN" && session) verifyAndUnlock(session);
-            if (event === "SIGNED_OUT") {
-                if (authScreen) authScreen.style.display = "flex";
-                if (protectedWrap) protectedWrap.style.display = "none";
-                if (guideRoot) guideRoot.innerHTML = "";
-                if (guideLoading) guideLoading.style.display = "block";
-                if (guideError) {
-                    guideError.style.display = "none";
-                    guideError.textContent = "";
-                }
-            }
-        });
-
-        if (emailForm) {
-            emailForm.addEventListener("submit", async function (e) {
+        var lastAttemptAt = 0;
+        if (passcodeForm) {
+            passcodeForm.addEventListener("submit", async function (e) {
                 e.preventDefault();
-                var input = document.getElementById("login-email");
-                var em = input && input.value.trim();
-                if (!em) return;
+                var now = Date.now();
+                if (now - lastAttemptAt < 600) return;
+                lastAttemptAt = now;
+
+                var val = (passcodeInput && passcodeInput.value) || "";
+                if (!val) return;
                 if (authMsg) {
-                    authMsg.textContent = "发送中…";
+                    authMsg.textContent = "校验中…";
                     authMsg.style.color = "#666";
                 }
-                var redirect =
-                    window.location.origin +
-                    window.location.pathname +
-                    (window.location.search || "");
-                var otp = await sb.auth.signInWithOtp({
-                    email: em,
-                    options: { emailRedirectTo: redirect },
-                });
-                if (otp.error) {
+                try {
+                    var hash = await sha256Hex(val);
+                    if (hash === PASSCODE_HASH) {
+                        try { localStorage.setItem(UNLOCK_STORAGE_KEY, "1"); } catch (_) {}
+                        if (passcodeInput) passcodeInput.value = "";
+                        if (authMsg) authMsg.textContent = "";
+                        await unlock();
+                    } else {
+                        if (authMsg) {
+                            authMsg.textContent = "口令错误，请重试。";
+                            authMsg.style.color = "#ce2b37";
+                        }
+                    }
+                } catch (err) {
+                    console.error(err);
                     if (authMsg) {
-                        authMsg.textContent = otp.error.message;
+                        authMsg.textContent = "校验异常，请刷新后重试。";
                         authMsg.style.color = "#ce2b37";
                     }
-                } else if (authMsg) {
-                    authMsg.textContent = "请查收邮件并点击链接完成登录。";
-                    authMsg.style.color = "#009246";
                 }
             });
+        }
+
+        function boot() {
+            var unlocked = false;
+            try { unlocked = localStorage.getItem(UNLOCK_STORAGE_KEY) === "1"; } catch (_) {}
+            if (unlocked) {
+                unlock();
+            } else {
+                lock();
+            }
         }
 
         boot();
