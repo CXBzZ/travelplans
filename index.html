@@ -9,6 +9,8 @@
          可选：window.GUIDE_STORAGE_BUCKET / window.GUIDE_STORAGE_PATH（默认 italy-guide / guide-body.html）
     -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
     <style>
         :root {
             --ita-green: #009246;
@@ -968,6 +970,326 @@
             color: #b91c1c;
         }
 
+        /* —— AI 问答浮窗 —— */
+        #ai-fab {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--ita-green) 0%, #00b359 100%);
+            color: #fff;
+            font-size: 26px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 146, 70, 0.35);
+            z-index: 9000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        #ai-fab.visible { display: flex; }
+        #ai-fab:hover {
+            transform: scale(1.08);
+            box-shadow: 0 10px 28px rgba(0, 146, 70, 0.45);
+        }
+        #ai-fab:active { transform: scale(0.96); }
+        #ai-fab .ai-fab-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--ita-red);
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+        }
+
+        .ai-panel {
+            position: fixed;
+            right: 24px;
+            bottom: 96px;
+            width: 380px;
+            max-width: calc(100vw - 32px);
+            height: 560px;
+            max-height: calc(100vh - 140px);
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 9001;
+            transform-origin: bottom right;
+            animation: aiPanelIn 0.22s ease;
+        }
+        .ai-panel.open { display: flex; }
+        @keyframes aiPanelIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: linear-gradient(to right, var(--ita-green) 0%, var(--ita-green) 33.33%, #fff 33.33%, #fff 66.66%, var(--ita-red) 66.66%, var(--ita-red) 100%);
+            position: relative;
+        }
+        .ai-header::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.92);
+        }
+        .ai-header-inner {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .ai-title {
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+        .ai-title small {
+            font-weight: 400;
+            color: var(--text-light);
+            font-size: 0.72rem;
+        }
+        .ai-actions { display: flex; gap: 6px; }
+        .ai-icon-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            color: var(--text-light);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .ai-icon-btn:hover {
+            background: rgba(0,0,0,0.06);
+            color: var(--ita-red);
+        }
+
+        .ai-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f8fafc;
+            scroll-behavior: smooth;
+        }
+        .ai-messages::-webkit-scrollbar { width: 6px; }
+        .ai-messages::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 3px;
+        }
+
+        .ai-empty {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .ai-empty h4 {
+            color: var(--ita-green);
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        .ai-suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .ai-suggest {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        .ai-suggest:hover {
+            border-color: var(--ita-green);
+            box-shadow: 0 2px 8px rgba(0, 146, 70, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .ai-msg {
+            display: flex;
+            margin-bottom: 12px;
+            gap: 8px;
+        }
+        .ai-msg.user { justify-content: flex-end; }
+        .ai-bubble {
+            max-width: 82%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 0.92rem;
+            line-height: 1.55;
+            word-break: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .ai-msg.user .ai-bubble {
+            background: var(--ita-green);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-msg.assistant .ai-bubble {
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid #eef2f6;
+            border-bottom-left-radius: 4px;
+        }
+        .ai-bubble :is(p, ul, ol) { margin: 0 0 6px; }
+        .ai-bubble :is(p, ul, ol):last-child { margin-bottom: 0; }
+        .ai-bubble ul, .ai-bubble ol { padding-left: 20px; }
+        .ai-bubble ul li, .ai-bubble ol li {
+            padding-left: 0;
+            margin-bottom: 2px;
+        }
+        .ai-bubble ul li::before { content: none; }
+        .ai-bubble code {
+            background: rgba(0,0,0,0.05);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        .ai-bubble strong { color: var(--ita-red); }
+        .ai-bubble a { color: var(--ita-green); }
+
+        .ai-cites {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .ai-cite-chip {
+            background: #f0f4f8;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .ai-typing {
+            display: inline-flex;
+            gap: 3px;
+            align-items: center;
+            padding: 2px 0;
+        }
+        .ai-typing span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--ita-green);
+            animation: aiDot 1.2s infinite ease-in-out both;
+        }
+        .ai-typing span:nth-child(2) { animation-delay: 0.15s; }
+        .ai-typing span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes aiDot {
+            0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+            40% { opacity: 1; transform: scale(1); }
+        }
+
+        .ai-input-wrap {
+            border-top: 1px solid #eef2f6;
+            padding: 10px 12px 12px;
+            background: #fff;
+        }
+        .ai-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .ai-input {
+            flex: 1;
+            resize: none;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 0.92rem;
+            font-family: inherit;
+            line-height: 1.4;
+            max-height: 120px;
+            min-height: 40px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .ai-input:focus {
+            border-color: var(--ita-green);
+            box-shadow: 0 0 0 3px rgba(0, 146, 70, 0.12);
+        }
+        .ai-send {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            border: none;
+            background: var(--ita-green);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .ai-send:hover:not(:disabled) { background: #007a3a; }
+        .ai-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ai-hint {
+            margin-top: 6px;
+            font-size: 0.7rem;
+            color: var(--text-light);
+            text-align: center;
+        }
+        .ai-error {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: #fef2f2;
+            color: #b91c1c;
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 576px) {
+            #ai-fab {
+                right: 16px;
+                bottom: 16px;
+                width: 52px;
+                height: 52px;
+                font-size: 22px;
+            }
+            .ai-panel {
+                right: 0;
+                bottom: 0;
+                width: 100vw;
+                max-width: 100vw;
+                height: 85vh;
+                max-height: 85vh;
+                border-radius: 16px 16px 0 0;
+                transform-origin: bottom center;
+            }
+            .ai-messages { padding: 12px; }
+            .ai-bubble { font-size: 0.88rem; }
+        }
+
     </style>
 </head>
 
@@ -994,6 +1316,35 @@
         <span class="lightbox-close">&times;</span>
         <img id="lightbox-img" src="" alt="门票凭证放大图">
         <div class="lightbox-hint">点击任意处关闭 | 按 ESC 键关闭</div>
+    </div>
+
+    <button type="button" id="ai-fab" title="攻略问答助手" aria-label="打开攻略问答助手">
+        <span>🤖</span>
+        <span class="ai-fab-badge">AI</span>
+    </button>
+
+    <div id="ai-panel" class="ai-panel" role="dialog" aria-labelledby="ai-panel-title">
+        <div class="ai-header">
+            <div class="ai-header-inner">
+                <div class="ai-title" id="ai-panel-title">
+                    🤖 <span>攻略问答助手</span>
+                    <small>Gemini · 仅用攻略内容作答</small>
+                </div>
+                <div class="ai-actions">
+                    <button type="button" class="ai-icon-btn" id="ai-clear-btn" title="清空对话" aria-label="清空对话">🧹</button>
+                    <button type="button" class="ai-icon-btn" id="ai-close-btn" title="关闭" aria-label="关闭">✕</button>
+                </div>
+            </div>
+        </div>
+        <div class="ai-messages" id="ai-messages"></div>
+        <div class="ai-input-wrap">
+            <form id="ai-form" class="ai-input-row" autocomplete="off">
+                <textarea id="ai-input" class="ai-input" rows="1" placeholder="问问这份攻略，比如：D5 几点要去乌菲兹？" maxlength="500"></textarea>
+                <button type="submit" class="ai-send" id="ai-send-btn" title="发送">➤</button>
+            </form>
+            <div id="ai-error" class="ai-error" style="display: none;"></div>
+            <div class="ai-hint">回答仅基于本攻略；如需外部信息请自行核对。</div>
+        </div>
     </div>
 
     </div><!-- #protected-wrap -->
@@ -1157,6 +1508,7 @@
             if (authMsg) authMsg.textContent = "";
             try {
                 await loadGuideBody();
+                if (typeof initAiChat === "function") initAiChat();
             } catch (e) {
                 console.error(e);
                 if (guideLoading) guideLoading.style.display = "none";
@@ -1178,6 +1530,303 @@
                 guideError.style.display = "none";
                 guideError.textContent = "";
             }
+            if (typeof teardownAiChat === "function") teardownAiChat();
+        }
+
+        // —— AI 问答面板 ——
+        var ASK_GUIDE_URL = SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/ask-guide";
+        var AI_MAX_HISTORY_TURNS = 6;
+        var aiInited = false;
+        var aiState = {
+            history: [], // [{ role: 'user' | 'model', content: string }]
+            busy: false,
+            abort: null,
+        };
+        var aiEl = {};
+
+        var AI_SUGGESTIONS = [
+            "罗马→锡耶纳的自驾路线要多久？",
+            "D5 乌菲兹几点要到？",
+            "托斯卡纳自驾在哪取车、哪还车？",
+            "哪几天住 agriturismo？",
+        ];
+
+        function aiMarkdown(text) {
+            try {
+                var rawHtml = (window.marked && window.marked.parse)
+                    ? window.marked.parse(text, { breaks: true, gfm: true })
+                    : ("<p>" + escapeHtml(text).replace(/\n/g, "<br>") + "</p>");
+                if (window.DOMPurify && window.DOMPurify.sanitize) {
+                    return window.DOMPurify.sanitize(rawHtml, {
+                        ALLOWED_TAGS: ["p","br","strong","em","code","pre","ul","ol","li","blockquote","a","h1","h2","h3","h4","h5","h6","hr","table","thead","tbody","tr","th","td","del","span"],
+                        ALLOWED_ATTR: ["href","title","target","rel"],
+                    });
+                }
+                return rawHtml;
+            } catch (_) {
+                return "<p>" + escapeHtml(text) + "</p>";
+            }
+        }
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+            });
+        }
+
+        function aiRenderEmpty() {
+            if (!aiEl.messages) return;
+            var sugHtml = AI_SUGGESTIONS.map(function (q) {
+                return '<button type="button" class="ai-suggest" data-q="' + escapeHtml(q) + '">' + escapeHtml(q) + "</button>";
+            }).join("");
+            aiEl.messages.innerHTML =
+                '<div class="ai-empty">' +
+                '<h4>👋 问问这份意大利攻略</h4>' +
+                '<div>我会只依据攻略里写到的内容回答你，回答末尾会附引用章节。</div>' +
+                '<div class="ai-suggestions">' + sugHtml + '</div>' +
+                '</div>';
+        }
+
+        function aiScrollToBottom() {
+            if (aiEl.messages) aiEl.messages.scrollTop = aiEl.messages.scrollHeight;
+        }
+
+        function aiAddUserMessage(text) {
+            if (!aiEl.messages) return;
+            // 首次发送：清掉引导页
+            if (aiEl.messages.querySelector(".ai-empty")) aiEl.messages.innerHTML = "";
+            var wrap = document.createElement("div");
+            wrap.className = "ai-msg user";
+            wrap.innerHTML = '<div class="ai-bubble"></div>';
+            wrap.querySelector(".ai-bubble").textContent = text;
+            aiEl.messages.appendChild(wrap);
+            aiScrollToBottom();
+        }
+
+        function aiAddAssistantPlaceholder() {
+            if (!aiEl.messages) return null;
+            var wrap = document.createElement("div");
+            wrap.className = "ai-msg assistant";
+            wrap.innerHTML =
+                '<div class="ai-bubble">' +
+                '<div class="ai-content"><div class="ai-typing"><span></span><span></span><span></span></div></div>' +
+                '<div class="ai-cites" style="display:none;"></div>' +
+                '</div>';
+            aiEl.messages.appendChild(wrap);
+            aiScrollToBottom();
+            return wrap;
+        }
+
+        function aiSetCites(wrap, headings) {
+            if (!wrap || !headings || !headings.length) return;
+            var box = wrap.querySelector(".ai-cites");
+            if (!box) return;
+            box.style.display = "flex";
+            box.innerHTML = headings.map(function (h) {
+                return '<span class="ai-cite-chip">' + escapeHtml(h) + "</span>";
+            }).join("");
+        }
+
+        function aiSetAssistantText(wrap, text) {
+            if (!wrap) return;
+            var content = wrap.querySelector(".ai-content");
+            if (!content) return;
+            content.innerHTML = aiMarkdown(text);
+            aiScrollToBottom();
+        }
+
+        function aiShowError(msg) {
+            if (!aiEl.error) return;
+            aiEl.error.style.display = "block";
+            aiEl.error.textContent = msg;
+            setTimeout(function () {
+                if (aiEl.error) {
+                    aiEl.error.style.display = "none";
+                    aiEl.error.textContent = "";
+                }
+            }, 6000);
+        }
+
+        function aiSetBusy(busy) {
+            aiState.busy = busy;
+            if (aiEl.send) aiEl.send.disabled = busy;
+            if (aiEl.input) aiEl.input.disabled = busy;
+        }
+
+        function aiOpen() {
+            if (!aiEl.panel) return;
+            aiEl.panel.classList.add("open");
+            if (aiEl.messages && aiEl.messages.childElementCount === 0) aiRenderEmpty();
+            setTimeout(function () { if (aiEl.input) aiEl.input.focus(); }, 120);
+        }
+        function aiClose() {
+            if (!aiEl.panel) return;
+            aiEl.panel.classList.remove("open");
+        }
+        function aiClear() {
+            if (aiState.abort) { try { aiState.abort.abort(); } catch (_) {} aiState.abort = null; }
+            aiState.history = [];
+            aiSetBusy(false);
+            aiRenderEmpty();
+        }
+
+        async function aiSend(question) {
+            question = (question || "").trim();
+            if (!question || aiState.busy) return;
+
+            aiAddUserMessage(question);
+            var assistantWrap = aiAddAssistantPlaceholder();
+            aiSetBusy(true);
+
+            // 历史只保留最近 N 轮（不含当前这轮）
+            var historyForApi = aiState.history.slice(-AI_MAX_HISTORY_TURNS * 2);
+
+            var controller = new AbortController();
+            aiState.abort = controller;
+            var acc = "";
+            var hadDelta = false;
+
+            try {
+                var resp = await fetch(ASK_GUIDE_URL, {
+                    method: "POST",
+                    signal: controller.signal,
+                    headers: {
+                        "content-type": "application/json",
+                        "apikey": SUPABASE_ANON_KEY,
+                        "authorization": "Bearer " + SUPABASE_ANON_KEY,
+                        "x-guide-passcode": PASSCODE_HASH,
+                    },
+                    body: JSON.stringify({ question: question, history: historyForApi }),
+                });
+
+                if (!resp.ok) {
+                    var errText = "";
+                    try { errText = (await resp.json()).error; } catch (_) { errText = await resp.text(); }
+                    throw new Error(errText || ("HTTP " + resp.status));
+                }
+                if (!resp.body) throw new Error("服务未返回流");
+
+                var reader = resp.body.getReader();
+                var decoder = new TextDecoder();
+                var buf = "";
+                while (true) {
+                    var chunk = await reader.read();
+                    if (chunk.done) break;
+                    buf += decoder.decode(chunk.value, { stream: true });
+                    var idx;
+                    while ((idx = buf.indexOf("\n\n")) !== -1) {
+                        var raw = buf.slice(0, idx);
+                        buf = buf.slice(idx + 2);
+                        var lines = raw.split("\n");
+                        for (var i = 0; i < lines.length; i++) {
+                            var line = lines[i];
+                            if (!line.startsWith("data:")) continue;
+                            var payload = line.slice(5).trim();
+                            if (!payload) continue;
+                            var evt;
+                            try { evt = JSON.parse(payload); } catch (_) { continue; }
+                            if (evt.type === "sources") {
+                                aiSetCites(assistantWrap, evt.headings || []);
+                            } else if (evt.type === "delta") {
+                                acc += String(evt.text || "");
+                                hadDelta = true;
+                                aiSetAssistantText(assistantWrap, acc);
+                            } else if (evt.type === "error") {
+                                throw new Error(evt.message || "服务端错误");
+                            }
+                        }
+                    }
+                }
+
+                if (!hadDelta) aiSetAssistantText(assistantWrap, "_（无回复内容）_");
+
+                aiState.history.push({ role: "user", content: question });
+                aiState.history.push({ role: "model", content: acc });
+            } catch (err) {
+                if (err && err.name === "AbortError") {
+                    if (assistantWrap) assistantWrap.remove();
+                } else {
+                    console.error(err);
+                    aiSetAssistantText(assistantWrap, "");
+                    var c = assistantWrap && assistantWrap.querySelector(".ai-content");
+                    if (c) c.innerHTML = '<span style="color:#b91c1c;">出错了：' + escapeHtml((err && err.message) || "请求失败") + "</span>";
+                    aiShowError((err && err.message) || "请求失败");
+                }
+            } finally {
+                aiSetBusy(false);
+                aiState.abort = null;
+            }
+        }
+
+        function initAiChat() {
+            if (aiInited) {
+                if (aiEl.fab) aiEl.fab.classList.add("visible");
+                return;
+            }
+            aiEl.fab = document.getElementById("ai-fab");
+            aiEl.panel = document.getElementById("ai-panel");
+            aiEl.messages = document.getElementById("ai-messages");
+            aiEl.input = document.getElementById("ai-input");
+            aiEl.send = document.getElementById("ai-send-btn");
+            aiEl.form = document.getElementById("ai-form");
+            aiEl.close = document.getElementById("ai-close-btn");
+            aiEl.clear = document.getElementById("ai-clear-btn");
+            aiEl.error = document.getElementById("ai-error");
+            if (!aiEl.fab || !aiEl.panel) return;
+
+            aiEl.fab.classList.add("visible");
+            aiRenderEmpty();
+
+            aiEl.fab.addEventListener("click", function () {
+                if (aiEl.panel.classList.contains("open")) aiClose();
+                else aiOpen();
+            });
+            aiEl.close.addEventListener("click", aiClose);
+            aiEl.clear.addEventListener("click", aiClear);
+
+            aiEl.form.addEventListener("submit", function (e) {
+                e.preventDefault();
+                var q = aiEl.input.value;
+                aiEl.input.value = "";
+                aiAutoResize();
+                aiSend(q);
+            });
+
+            aiEl.input.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault();
+                    aiEl.form.dispatchEvent(new Event("submit", { cancelable: true }));
+                }
+            });
+            aiEl.input.addEventListener("input", aiAutoResize);
+            function aiAutoResize() {
+                aiEl.input.style.height = "auto";
+                aiEl.input.style.height = Math.min(aiEl.input.scrollHeight, 120) + "px";
+            }
+
+            aiEl.messages.addEventListener("click", function (e) {
+                var t = e.target;
+                if (t && t.classList && t.classList.contains("ai-suggest")) {
+                    var q = t.getAttribute("data-q") || t.textContent || "";
+                    aiSend(q);
+                }
+            });
+
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape" && aiEl.panel.classList.contains("open")) {
+                    aiClose();
+                }
+            });
+
+            aiInited = true;
+        }
+
+        function teardownAiChat() {
+            if (aiState.abort) { try { aiState.abort.abort(); } catch (_) {} aiState.abort = null; }
+            aiState.history = [];
+            aiSetBusy(false);
+            if (aiEl.fab) aiEl.fab.classList.remove("visible");
+            if (aiEl.panel) aiEl.panel.classList.remove("open");
+            if (aiEl.messages) aiEl.messages.innerHTML = "";
         }
 
         if (protectedWrap) {
